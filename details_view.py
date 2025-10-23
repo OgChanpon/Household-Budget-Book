@@ -1,109 +1,101 @@
+# details_view.py
 import customtkinter as ctk
 import sqlite3
 from datetime import datetime
+from tkinter import messagebox
+import calendar
+
+# Matplotlibのインポート
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
+# Matplotlibの日本語設定
+plt.rcParams['font.sans-serif'] = ['Yu Gothic', 'Hiragino Maru Gothic Pro']
 
 class DetailsView(ctk.CTkFrame):
     def __init__(self, parent):
         super().__init__(parent, fg_color="transparent")
         self.pack(fill="both", expand=True, padx=10, pady=10)
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
 
-        # --- データ表示用の変数を準備 ---
-        self.monthly_income = ctk.StringVar(value="0 円")
-        self.monthly_expense = ctk.StringVar(value="0 円")
-        self.monthly_balance = ctk.StringVar(value="0 円")
-        self.annual_income = ctk.StringVar(value="0 円")
-        self.annual_expense = ctk.StringVar(value="0 円")
-        self.annual_balance = ctk.StringVar(value="0 円")
-        self.total_savings = ctk.StringVar(value="0 円")
-
-        # --- ウィジェットの作成 ---
-        selector_frame = ctk.CTkFrame(self)
-        selector_frame.pack(fill="x", pady=(0, 15))
+        # --- 詳細タブの中にさらにタブを作成 ---
+        self.details_tab_view = ctk.CTkTabview(self)
+        self.details_tab_view.grid(row=0, column=0, sticky="nsew")
         
-        current_year = datetime.now().year
-        current_month = datetime.now().month
+        self.details_tab_view.add("貯金額")
+        # 他のタブも同様に追加可能...
 
-        ctk.CTkLabel(selector_frame, text="年:").pack(side="left", padx=(10, 0))
-        self.year_spinbox = ctk.CTkEntry(selector_frame, width=60)
-        self.year_spinbox.insert(0, str(current_year))
-        self.year_spinbox.pack(side="left", padx=5)
+        # --- 「貯金額」タブの中身を作成 ---
+        savings_tab = self.details_tab_view.tab("貯金額")
+        savings_tab.grid_rowconfigure(1, weight=1)
+        savings_tab.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(selector_frame, text="月:").pack(side="left")
-        self.month_spinbox = ctk.CTkEntry(selector_frame, width=40)
-        self.month_spinbox.insert(0, str(current_month))
-        self.month_spinbox.pack(side="left", padx=5)
-
-        ctk.CTkButton(selector_frame, text="表示更新", command=self.update_display, width=80).pack(side="right", padx=10)
-
-        # --- 月間収支 ---
-        monthly_frame = ctk.CTkFrame(self)
-        monthly_frame.pack(fill="x", pady=5)
-        ctk.CTkLabel(monthly_frame, text="--- 月間収支 ---", font=ctk.CTkFont(weight="bold")).pack(pady=(5,10))
-        ctk.CTkLabel(monthly_frame, text="収入:").pack(padx=10, pady=2, anchor="w")
-        ctk.CTkLabel(monthly_frame, textvariable=self.monthly_income, font=ctk.CTkFont(size=16)).pack(padx=10, pady=2, anchor="e")
-        ctk.CTkLabel(monthly_frame, text="支出:").pack(padx=10, pady=2, anchor="w")
-        ctk.CTkLabel(monthly_frame, textvariable=self.monthly_expense, font=ctk.CTkFont(size=16)).pack(padx=10, pady=2, anchor="e")
-        ctk.CTkLabel(monthly_frame, text="収支:").pack(padx=10, pady=2, anchor="w")
-        self.m_balance_label = ctk.CTkLabel(monthly_frame, textvariable=self.monthly_balance, font=ctk.CTkFont(size=16, weight="bold"))
-        self.m_balance_label.pack(padx=10, pady=2, anchor="e")
-
-        # --- 年間収支 ---
-        annual_frame = ctk.CTkFrame(self)
-        annual_frame.pack(fill="x", pady=5)
-        ctk.CTkLabel(annual_frame, text="--- 年間収支 ---", font=ctk.CTkFont(weight="bold")).pack(pady=(5,10))
-        ctk.CTkLabel(annual_frame, text="収入:").pack(padx=10, pady=2, anchor="w")
-        ctk.CTkLabel(annual_frame, textvariable=self.annual_income, font=ctk.CTkFont(size=16)).pack(padx=10, pady=2, anchor="e")
-        ctk.CTkLabel(annual_frame, text="支出:").pack(padx=10, pady=2, anchor="w")
-        ctk.CTkLabel(annual_frame, textvariable=self.annual_expense, font=ctk.CTkFont(size=16)).pack(padx=10, pady=2, anchor="e")
-        ctk.CTkLabel(annual_frame, text="収支:").pack(padx=10, pady=2, anchor="w")
-        self.a_balance_label = ctk.CTkLabel(annual_frame, textvariable=self.annual_balance, font=ctk.CTkFont(size=16, weight="bold"))
-        self.a_balance_label.pack(padx=10, pady=2, anchor="e")
-
-        # --- 総資産 ---
-        savings_frame = ctk.CTkFrame(self)
-        savings_frame.pack(fill="x", pady=5)
-        ctk.CTkLabel(savings_frame, text="総貯金額", font=ctk.CTkFont(size=18, weight="bold")).pack(pady=5)
-        ctk.CTkLabel(savings_frame, textvariable=self.total_savings, font=ctk.CTkFont(size=22, weight="bold")).pack(pady=5)
+        # グラフ描画エリア
+        self.fig = Figure(figsize=(5, 4), dpi=100)
+        self.ax = self.fig.add_subplot(111)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=savings_tab)
+        self.canvas_widget = self.canvas.get_tk_widget()
+        self.canvas_widget.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+        
+        # 年セレクター
+        selector_frame = ctk.CTkFrame(savings_tab)
+        selector_frame.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
+        ctk.CTkLabel(selector_frame, text="表示年:").pack(side="left", padx=5)
+        self.year_entry = ctk.CTkEntry(selector_frame, width=80)
+        self.year_entry.insert(0, str(datetime.now().year))
+        self.year_entry.pack(side="left")
+        ctk.CTkButton(selector_frame, text="グラフ更新", command=self.update_display).pack(side="left", padx=5)
 
     def fetch_data(self, query, params=()):
+        # (この関数は変更なし)
         try:
             conn = sqlite3.connect('kakeibo.db')
             cursor = conn.cursor()
             cursor.execute(query, params)
-            result = cursor.fetchone()[0]
+            result = cursor.fetchall() # fetchall()に変更
             conn.close()
-            return result if result is not None else 0
+            return result
         except sqlite3.Error as e:
             print(f"データベースエラー: {e}")
-            return 0
+            return []
     
     def update_display(self):
         try:
-            year = int(self.year_spinbox.get())
-            month = int(self.month_spinbox.get())
+            year = int(self.year_entry.get())
         except ValueError:
-            messagebox.showerror("入力エラー", "年と月は数字で入力してください。")
+            messagebox.showerror("入力エラー", "年は数字で入力してください。")
             return
+            
+        # グラフ描画
+        self.draw_bar_chart(year)
 
-        month_str = f"{year}-{month:02d}"
-        m_income = self.fetch_data("SELECT SUM(amount) FROM transactions WHERE type='収入' AND date LIKE ?", (month_str + '%',))
-        m_expense = self.fetch_data("SELECT SUM(amount) FROM transactions WHERE type='支出' AND date LIKE ?", (month_str + '%',))
-        m_balance = m_income - m_expense
-        self.monthly_income.set(f"{m_income:,} 円")
-        self.monthly_expense.set(f"{m_expense:,} 円")
-        self.monthly_balance.set(f"{m_balance:+,} 円")
-        self.m_balance_label.configure(text_color="blue" if m_balance >= 0 else "red")
+    def draw_bar_chart(self, year):
+        # 1. データを取得
+        monthly_balances = {month: 0 for month in range(1, 13)}
+
+        income_data = self.fetch_data("SELECT strftime('%m', date), SUM(amount) FROM transactions WHERE type='収入' AND strftime('%Y', date)=? GROUP BY strftime('%m', date)", (str(year),))
+        for month_str, total in income_data:
+            monthly_balances[int(month_str)] += total
+
+        expense_data = self.fetch_data("SELECT strftime('%m', date), SUM(amount) FROM transactions WHERE type='支出' AND strftime('%Y', date)=? GROUP BY strftime('%m', date)", (str(year),))
+        for month_str, total in expense_data:
+            monthly_balances[int(month_str)] -= total
         
-        year_str = f"{year}"
-        a_income = self.fetch_data("SELECT SUM(amount) FROM transactions WHERE type='収入' AND date LIKE ?", (year_str + '%',))
-        a_expense = self.fetch_data("SELECT SUM(amount) FROM transactions WHERE type='支出' AND date LIKE ?", (year_str + '%',))
-        a_balance = a_income - a_expense
-        self.annual_income.set(f"{a_income:,} 円")
-        self.annual_expense.set(f"{a_expense:,} 円")
-        self.annual_balance.set(f"{a_balance:+,} 円")
-        self.a_balance_label.configure(text_color="blue" if a_balance >= 0 else "red")
+        # 2. グラフをクリア
+        self.ax.clear()
 
-        total_income = self.fetch_data("SELECT SUM(amount) FROM transactions WHERE type='収入'")
-        total_expense = self.fetch_data("SELECT SUM(amount) FROM transactions WHERE type='支出'")
-        savings = total_income - total_expense
-        self.total_savings.set(f"{savings:,} 円")
+        # 3. グラフを描画
+        months = [f"{m}月" for m in range(1, 13)]
+        balances = [monthly_balances[m] for m in range(1, 13)]
+        colors = ['#3377FF' if b >= 0 else '#FF3333' for b in balances]
+        
+        self.ax.bar(months, balances, color=colors)
+        self.ax.set_title(f"{year}年 月別収支")
+        self.ax.set_ylabel("収支 (円)")
+        self.ax.axhline(0, color='gray', linewidth=0.8) # 0円のライン
+        self.fig.tight_layout() # レイアウトを調整
+
+        # 4. キャンバスを再描画
+        self.canvas.draw()
