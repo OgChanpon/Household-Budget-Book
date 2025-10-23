@@ -1,6 +1,4 @@
-# calendar_view_refactored.py
-import tkinter as tk
-from tkinter import ttk
+import customtkinter as ctk
 import sqlite3
 import calendar
 from datetime import datetime
@@ -8,31 +6,30 @@ from collections import defaultdict
 
 calendar.setfirstweekday(calendar.SUNDAY)
 
-class CalendarApp:
-    # (以前の calendar_view.py のコードとほぼ同じ。変更点は__init__のみ)
-    def __init__(self, root):
-        self.root = root
-        self.root.title("家計簿 - カレンダー表示")
-        self.root.geometry("650x450")
+class CalendarView(ctk.CTkFrame):
+    def __init__(self, parent):
+        super().__init__(parent, fg_color="transparent")
+        self.pack(fill="both", expand=True)
         
         self.current_date = datetime.now()
         
-        header_frame = ttk.Frame(self.root, padding=5)
-        header_frame.pack(fill=tk.X)
+        # --- ヘッダーフレーム (年月表示とナビゲーションボタン) ---
+        header_frame = ctk.CTkFrame(self, fg_color="transparent")
+        header_frame.pack(fill="x", pady=5, padx=5)
 
-        self.prev_button = ttk.Button(header_frame, text="< 前の月", command=self.prev_month)
-        self.prev_button.pack(side=tk.LEFT)
-        self.next_button = ttk.Button(header_frame, text="次の月 >", command=self.next_month)
-        self.next_button.pack(side=tk.RIGHT)
-        self.month_label = ttk.Label(header_frame, font=("", 16, "bold"))
-        self.month_label.pack(side=tk.LEFT, expand=True)
+        prev_button = ctk.CTkButton(header_frame, text="<", command=self.prev_month, width=40)
+        prev_button.pack(side="left")
 
-        self.calendar_frame = ttk.Frame(self.root, padding=5)
-        self.calendar_frame.pack(fill=tk.BOTH, expand=True)
+        next_button = ctk.CTkButton(header_frame, text=">", command=self.next_month, width=40)
+        next_button.pack(side="right")
 
-        self.draw_calendar()
-    
-    # ... (fetch_month_data, draw_calendar, prev_month, next_month メソッドは変更なし) ...
+        self.month_label = ctk.CTkLabel(header_frame, font=ctk.CTkFont(size=18, weight="bold"))
+        self.month_label.pack(side="left", expand=True, fill="x")
+
+        # --- カレンダー本体のフレーム ---
+        self.calendar_frame = ctk.CTkFrame(self)
+        self.calendar_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
     def fetch_month_data(self, year, month):
         daily_totals = defaultdict(lambda: {"収入": 0, "支出": 0})
         start_date = f"{year}-{month:02d}-01"
@@ -54,28 +51,41 @@ class CalendarApp:
     def draw_calendar(self):
         for widget in self.calendar_frame.winfo_children():
             widget.destroy()
+
         year = self.current_date.year
         month = self.current_date.month
-        self.month_label.config(text=f"{year}年 {month}月")
+
+        self.month_label.configure(text=f"{year}年 {month}月")
         daily_data = self.fetch_month_data(year, month)
+
         days_of_week = ["日", "月", "火", "水", "木", "金", "土"]
         for i, day_name in enumerate(days_of_week):
-            label = ttk.Label(self.calendar_frame, text=day_name, width=12, anchor=tk.CENTER)
-            label.grid(row=0, column=i, sticky='nsew')
-            if day_name == "日": label.config(foreground="red")
-            elif day_name == "土": label.config(foreground="blue")
+            label = ctk.CTkLabel(self.calendar_frame, text=day_name, font=ctk.CTkFont(weight="bold"))
+            label.grid(row=0, column=i, sticky='nsew', padx=1, pady=1)
+            if day_name == "日": label.configure(text_color="red")
+            elif day_name == "土": label.configure(text_color="blue")
+
         month_calendar = calendar.monthcalendar(year, month)
         for row_idx, week in enumerate(month_calendar, start=1):
             for col_idx, day in enumerate(week):
                 if day == 0: continue
-                day_frame = ttk.Frame(self.calendar_frame, borderwidth=1, relief="solid")
-                day_frame.grid(row=row_idx, column=col_idx, sticky='nsew', ipady=5)
-                ttk.Label(day_frame, text=str(day)).pack(anchor=tk.NW)
+                
+                day_frame = ctk.CTkFrame(self.calendar_frame, border_width=1)
+                day_frame.grid(row=row_idx, column=col_idx, sticky='nsew', padx=1, pady=1)
+                day_frame.grid_rowconfigure(1, weight=1) # 中央寄せのために設定
+                day_frame.grid_columnconfigure(0, weight=1)
+
+                ctk.CTkLabel(day_frame, text=str(day)).grid(row=0, column=0, sticky="n", padx=2)
+                
+                content_frame = ctk.CTkFrame(day_frame, fg_color="transparent")
+                content_frame.grid(row=1, column=0)
+
                 income = daily_data[day]["収入"]
                 expense = daily_data[day]["支出"]
-                if income > 0: ttk.Label(day_frame, text=f"+{income:,}", foreground="blue").pack(anchor=tk.CENTER)
-                if expense > 0: ttk.Label(day_frame, text=f"-{expense:,}", foreground="red").pack(anchor=tk.CENTER)
-                if income == 0 and expense == 0: ttk.Label(day_frame, text="0円", foreground="gray").pack(anchor=tk.CENTER)
+                
+                if income > 0: ctk.CTkLabel(content_frame, text=f"{income:,}", text_color="#3377FF").pack()
+                if expense > 0: ctk.CTkLabel(content_frame, text=f"{expense:,}", text_color="#FF3333").pack()
+
         for i in range(7): self.calendar_frame.grid_columnconfigure(i, weight=1)
         for i in range(len(month_calendar) + 1): self.calendar_frame.grid_rowconfigure(i, weight=1)
 

@@ -1,4 +1,4 @@
-# setup_database_refactored.py
+# setup_database.py
 import sqlite3
 
 def setup():
@@ -6,6 +6,7 @@ def setup():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
+    # カテゴリ列がないテーブル定義
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS transactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

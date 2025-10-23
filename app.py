@@ -1,50 +1,57 @@
-import tkinter as tk
-from tkinter import ttk
-# 各ウィンドウのクラスをインポートするためにファイル名を指定
-from input_view import InputWindow
-from calendar_view import CalendarApp
-from details_view import DetailsApp
+import customtkinter as ctk
+import setup_database
 
-class MainApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("統合家計簿アプリ")
-        self.root.geometry("300x200")
+# 各画面のクラスをインポート
+from input_view import InputView
+from calendar_view import CalendarView
+from details_view import DetailsView
 
-        frame = ttk.Frame(root, padding=20)
-        frame.pack(fill=tk.BOTH, expand=True)
+# --- アプリの基本設定 ---
+ctk.set_appearance_mode("Light")
+ctk.set_default_color_theme("blue")
 
-        # --- 各ウィンドウを開くためのボタン ---
-        input_button = ttk.Button(frame, text="入力画面を開く", command=self.open_input)
-        input_button.pack(pady=5, fill=tk.X)
+class MainApp(ctk.CTk):
+    def __init__(self):
+        super().__init__()
 
-        calendar_button = ttk.Button(frame, text="カレンダー表示を開く", command=self.open_calendar)
-        calendar_button.pack(pady=5, fill=tk.X)
+        self.title("家計簿アプリ")
+        self.geometry("400x650")
 
-        details_button = ttk.Button(frame, text="詳細表示を開く", command=self.open_details)
-        details_button.pack(pady=5, fill=tk.X)
+        # --- ウィンドウのグリッド設定 ---
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
 
-    def open_window(self, window_class):
-        """新しいウィンドウを開くための共通関数"""
-        # Toplevelでメインウィンドウの子ウィンドウとして作成
-        new_window = tk.Toplevel(self.root) 
-        app = window_class(new_window)
+        # --- タブビューの作成 ---
+        self.tab_view = ctk.CTkTabview(master=self, command=self.on_tab_change)
+        self.tab_view.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
 
-    def open_input(self):
-        self.open_window(InputWindow)
+        # --- 各タブの作成 ---
+        self.tab_view.add("入力")
+        self.tab_view.add("カレンダー")
+        self.tab_view.add("詳細")
+        
+        # --- 各タブの中に、それぞれの画面(フレーム)を埋め込む ---
+        self.input_frame = InputView(parent=self.tab_view.tab("入力"))
+        self.calendar_frame = CalendarView(parent=self.tab_view.tab("カレンダー"))
+        self.details_frame = DetailsView(parent=self.tab_view.tab("詳細"))
+        
+        # 起動時に「カレンダー」タブを選択し、内容を更新する
+        self.tab_view.set("カレンダー")
+        self.calendar_frame.draw_calendar()
 
-    def open_calendar(self):
-        self.open_window(CalendarApp)
 
-    def open_details(self):
-        self.open_window(DetailsApp)
+    def on_tab_change(self):
+        """タブが切り替わったときに呼ばれる関数"""
+        current_tab = self.tab_view.get()
+        
+        # カレンダーまたは詳細タブが表示されたら、表示を最新データに更新する
+        if current_tab == "カレンダー":
+            self.calendar_frame.draw_calendar()
+        elif current_tab == "詳細":
+            self.details_frame.update_display()
 
 
 if __name__ == '__main__':
-    # データベースのセットアップを最初に実行（初回のみ必要）
-    import setup_database
     setup_database.setup()
-    
-    root = tk.Tk()
-    app = MainApp(root)
-    root.mainloop()
+    app = MainApp()
+    app.mainloop()
